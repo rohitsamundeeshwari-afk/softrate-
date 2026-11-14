@@ -1,9 +1,10 @@
 {
+  "buildCommand": "node build-all.js",
   "outputDirectory": "dist",
   "rewrites": [
     {
       "source": "/api/(.*)",
-      "destination": "/api"
+      "destination": "/api/index.js"
     },
     {
       "source": "/(.*)",

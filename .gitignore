@@ -2,10 +2,6 @@
 node_modules
 */node_modules
 
-# Production build
-dist
-frontend/dist
-
 # Environment variables
 .env
 backend/.env
@@ -19,5 +15,5 @@ yarn-error.log*
 Thumbs.db
 .vercel
 
-# Local data cache (preserves seed)
+# Local data cache
 backend/data/storage
