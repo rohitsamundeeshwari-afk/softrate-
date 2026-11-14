@@ -54,7 +54,27 @@ if (fs.existsSync(frontendDist)) {
   });
 }
 
-// 404 Handler for API
+// Root handler fallback if static frontend was not bundled with the backend
+app.get('/', (req, res) => {
+  const indexPath = path.join(frontendDist, 'index.html');
+  if (fs.existsSync(indexPath)) {
+    return res.sendFile(indexPath);
+  }
+  return res.json({
+    status: 'online',
+    app: 'TechPulse MERN Backend API',
+    message: 'Backend server is running successfully.',
+    endpoints: {
+      health: '/api/health',
+      posts: '/api/posts',
+      categories: '/api/categories',
+      stats: '/api/stats',
+      adminLogin: '/api/auth/login',
+    },
+  });
+});
+
+// 404 Handler for undefined API routes
 app.use((req, res, next) => {
   res.status(404).json({ success: false, message: `Route not found - ${req.originalUrl}` });
 });
@@ -68,20 +88,32 @@ app.use((err, req, res, next) => {
   });
 });
 
-// Start Server and initialize DB/Store
-async function startServer() {
-  await connectDB();
-  await initStore();
-
-  app.listen(PORT, () => {
-    console.log(`\n======================================================`);
-    console.log(`🚀 TechPulse Backend Server running on port \x1b[32m${PORT}\x1b[0m`);
-    console.log(`📡 API Health: \x1b[36mhttp://localhost:${PORT}/api/health\x1b[0m`);
-    console.log(`📑 Posts Endpoint: \x1b[36mhttp://localhost:${PORT}/api/posts\x1b[0m`);
-    console.log(`📂 Categories Endpoint: \x1b[36mhttp://localhost:${PORT}/api/categories\x1b[0m`);
-    console.log(`🔐 Admin Credentials: admin@techblog.com / admin123`);
-    console.log(`======================================================\n`);
-  });
+// Initialize DB and Store on startup
+let initialized = false;
+async function initializeApp() {
+  if (!initialized) {
+    await connectDB();
+    await initStore();
+    initialized = true;
+  }
 }
 
-startServer();
+// For local development or non-serverless environments
+if (!process.env.VERCEL) {
+  initializeApp().then(() => {
+    app.listen(PORT, () => {
+      console.log(`\n======================================================`);
+      console.log(`🚀 TechPulse Backend Server running on port \x1b[32m${PORT}\x1b[0m`);
+      console.log(`📡 API Health: \x1b[36mhttp://localhost:${PORT}/api/health\x1b[0m`);
+      console.log(`📑 Posts Endpoint: \x1b[36mhttp://localhost:${PORT}/api/posts\x1b[0m`);
+      console.log(`📂 Categories Endpoint: \x1b[36mhttp://localhost:${PORT}/api/categories\x1b[0m`);
+      console.log(`🔐 Admin Credentials: admin@techblog.com / admin123`);
+      console.log(`======================================================\n`);
+    });
+  });
+} else {
+  // In Vercel serverless environment, initialize once
+  initializeApp();
+}
+
+module.exports = app;

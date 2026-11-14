@@ -1,40 +1,61 @@
 const fs = require('fs');
 const path = require('path');
+const os = require('os');
 const Post = require('../models/Post');
 const Category = require('../models/Category');
 const { isMongoConnected } = require('../config/db');
 const { initialCategories, initialPosts } = require('./initialData');
 
-const dataDir = path.join(__dirname, 'storage');
+// In serverless / Vercel, filesystem outside /tmp is read-only
+const isVercel = Boolean(process.env.VERCEL);
+const dataDir = isVercel
+  ? path.join(os.tmpdir(), 'techblog_storage')
+  : path.join(__dirname, 'storage');
+
 const postsFilePath = path.join(dataDir, 'posts.json');
 const categoriesFilePath = path.join(dataDir, 'categories.json');
 
+// In-memory fallback if disk operations fail
+let inMemoryPosts = [...initialPosts];
+let inMemoryCategories = [...initialCategories];
+
 // Ensure local storage directory exists
-if (!fs.existsSync(dataDir)) {
-  fs.mkdirSync(dataDir, { recursive: true });
+try {
+  if (!fs.existsSync(dataDir)) {
+    fs.mkdirSync(dataDir, { recursive: true });
+  }
+} catch (e) {
+  console.warn('Could not create storage directory, using in-memory store:', e.message);
 }
 
 // Helper to read local JSON
 function readLocal(filePath, defaultData) {
   try {
     if (!fs.existsSync(filePath)) {
-      fs.writeFileSync(filePath, JSON.stringify(defaultData, null, 2), 'utf-8');
+      try {
+        fs.writeFileSync(filePath, JSON.stringify(defaultData, null, 2), 'utf-8');
+      } catch (writeErr) {
+        // Fallback to in-memory
+      }
       return defaultData;
     }
     const raw = fs.readFileSync(filePath, 'utf-8');
     return JSON.parse(raw);
   } catch (err) {
-    console.error(`Error reading ${filePath}:`, err.message);
-    return defaultData;
+    if (filePath.includes('posts')) return inMemoryPosts;
+    return inMemoryCategories;
   }
 }
 
 // Helper to write local JSON
 function writeLocal(filePath, data) {
+  if (filePath.includes('posts')) inMemoryPosts = data;
+  if (filePath.includes('categories')) inMemoryCategories = data;
+
   try {
     fs.writeFileSync(filePath, JSON.stringify(data, null, 2), 'utf-8');
   } catch (err) {
-    console.error(`Error writing ${filePath}:`, err.message);
+    // In-memory cache is already updated
   }
 }
 
@@ -111,8 +132,8 @@ async function getPosts({ search = '', category = '', tag = '', page = 1, limit 
       pages: Math.ceil(total / limit) || 1,
     };
   } else {
-    // Local JSON
-    let posts = readLocal(postsFilePath, initialPosts);
+    // Local JSON or In-Memory
+    let posts = readLocal(postsFilePath, inMemoryPosts);
     if (publishedOnly) {
       posts = posts.filter((p) => p.published !== false);
     }
@@ -174,7 +195,7 @@ async function getPostByIdOrSlug(idOrSlug) {
     }
     return post;
   } else {
-    const posts = readLocal(postsFilePath, initialPosts);
+    const posts = readLocal(postsFilePath, inMemoryPosts);
     const index = posts.findIndex((p) => p._id === idOrSlug || p.slug === idOrSlug);
     if (index === -1) return null;
     posts[index].views = (posts[index].views || 0) + 1;
@@ -197,7 +218,7 @@ async function createPost(postData) {
       readTime,
     });
   } else {
-    const posts = readLocal(postsFilePath, initialPosts);
+    const posts = readLocal(postsFilePath, inMemoryPosts);
     const newPost = {
       _id: 'post-' + Date.now(),
       ...postData,
@@ -229,7 +250,7 @@ async function updatePost(id, postData) {
   if (isMongoConnected()) {
     return await Post.findByIdAndUpdate(id, { ...postData, updatedAt: new Date() }, { new: true });
   } else {
-    const posts = readLocal(postsFilePath, initialPosts);
+    const posts = readLocal(postsFilePath, inMemoryPosts);
     const index = posts.findIndex((p) => p._id === id || p.slug === id);
     if (index === -1) return null;
     const updated = {
@@ -247,7 +268,7 @@ async function deletePost(id) {
   if (isMongoConnected()) {
     return await Post.findByIdAndDelete(id);
   } else {
-    const posts = readLocal(postsFilePath, initialPosts);
+    const posts = readLocal(postsFilePath, inMemoryPosts);
     const index = posts.findIndex((p) => p._id === id || p.slug === id);
     if (index === -1) return null;
     const removed = posts.splice(index, 1)[0];
@@ -263,7 +284,6 @@ async function getCategories() {
       Category.find().sort({ name: 1 }),
       Post.find({}, 'category'),
     ]);
-    // Count posts per category
     const countMap = {};
     posts.forEach((p) => {
       countMap[p.category] = (countMap[p.category] || 0) + 1;
@@ -273,8 +293,8 @@ async function getCategories() {
       postCount: countMap[c.name] || 0,
     }));
   } else {
-    const categories = readLocal(categoriesFilePath, initialCategories);
-    const posts = readLocal(postsFilePath, initialPosts);
+    const categories = readLocal(categoriesFilePath, inMemoryCategories);
+    const posts = readLocal(postsFilePath, inMemoryPosts);
     const countMap = {};
     posts.forEach((p) => {
       countMap[p.category] = (countMap[p.category] || 0) + 1;
@@ -291,7 +311,7 @@ async function createCategory(catData) {
   if (isMongoConnected()) {
     return await Category.create({ ...catData, slug });
   } else {
-    const categories = readLocal(categoriesFilePath, initialCategories);
+    const categories = readLocal(categoriesFilePath, inMemoryCategories);
     const newCat = {
       _id: 'cat-' + Date.now(),
       ...catData,
@@ -311,7 +331,7 @@ async function updateCategory(id, catData) {
   if (isMongoConnected()) {
     return await Category.findByIdAndUpdate(id, catData, { new: true });
   } else {
-    const categories = readLocal(categoriesFilePath, initialCategories);
+    const categories = readLocal(categoriesFilePath, inMemoryCategories);
     const index = categories.findIndex((c) => c._id === id || c.slug === id);
     if (index === -1) return null;
     const oldName = categories[index].name;
@@ -319,9 +339,8 @@ async function updateCategory(id, catData) {
     categories[index] = updated;
     writeLocal(categoriesFilePath, categories);
 
-    // If category name changed, update corresponding posts
     if (catData.name && catData.name !== oldName) {
-      const posts = readLocal(postsFilePath, initialPosts);
+      const posts = readLocal(postsFilePath, inMemoryPosts);
       posts.forEach((p) => {
         if (p.category === oldName) {
           p.category = catData.name;
@@ -338,7 +357,7 @@ async function deleteCategory(id) {
   if (isMongoConnected()) {
     return await Category.findByIdAndDelete(id);
   } else {
-    const categories = readLocal(categoriesFilePath, initialCategories);
+    const categories = readLocal(categoriesFilePath, inMemoryCategories);
     const index = categories.findIndex((c) => c._id === id || c.slug === id);
     if (index === -1) return null;
     const removed = categories.splice(index, 1)[0];
@@ -365,8 +384,8 @@ async function getStats() {
       totalViews,
     };
   } else {
-    const posts = readLocal(postsFilePath, initialPosts);
-    const categories = readLocal(categoriesFilePath, initialCategories);
+    const posts = readLocal(postsFilePath, inMemoryPosts);
+    const categories = readLocal(categoriesFilePath, inMemoryCategories);
     const totalPosts = posts.length;
     const publishedPosts = posts.filter((p) => p.published !== false).length;
     const totalViews = posts.reduce((acc, p) => acc + (p.views || 0), 0);
