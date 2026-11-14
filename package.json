@@ -1,0 +1,14 @@
+{
+  "name": "mern-tech-blog",
+  "version": "1.0.0",
+  "description": "Full Stack Technology Blog Website (MERN Stack)",
+  "scripts": {
+    "server": "npm --prefix backend run dev",
+    "client": "npm --prefix frontend run dev",
+    "dev": "node run-all.js",
+    "seed": "npm --prefix backend run seed",
+    "build": "npm --prefix frontend run build"
+  },
+  "author": "Rohit",
+  "license": "ISC"
+}

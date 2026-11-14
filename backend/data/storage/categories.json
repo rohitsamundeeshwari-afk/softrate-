@@ -1,0 +1,65 @@
+[
+  {
+    "_id": "cat-1",
+    "name": "Software Development",
+    "slug": "software-development",
+    "description": "Modern architectures, design patterns, clean code practices, and system engineering.",
+    "color": "emerald",
+    "icon": "code",
+    "createdAt": "2026-11-13T17:37:26.805Z"
+  },
+  {
+    "_id": "cat-2",
+    "name": "Artificial Intelligence & Machine Learning",
+    "slug": "artificial-intelligence-and-machine-learning",
+    "description": "LLMs, deep learning models, generative AI architectures, and neural algorithms.",
+    "color": "violet",
+    "icon": "cpu",
+    "createdAt": "2026-11-13T17:37:26.808Z"
+  },
+  {
+    "_id": "cat-3",
+    "name": "Web and Mobile App Development",
+    "slug": "web-and-mobile-app-development",
+    "description": "Full stack development with React, Node.js, Next.js, Flutter, and cross-platform UX.",
+    "color": "blue",
+    "icon": "globe",
+    "createdAt": "2026-11-13T17:37:26.808Z"
+  },
+  {
+    "_id": "cat-4",
+    "name": "Technology & Innovation",
+    "slug": "technology-and-innovation",
+    "description": "Breakthrough innovations, quantum computing, robotics, and emerging digital frontiers.",
+    "color": "amber",
+    "icon": "zap",
+    "createdAt": "2026-11-13T17:37:26.808Z"
+  },
+  {
+    "_id": "cat-5",
+    "name": "Cybersecurity",
+    "slug": "cybersecurity",
+    "description": "Zero trust security, cryptography, vulnerability assessment, and threat mitigation.",
+    "color": "rose",
+    "icon": "shield",
+    "createdAt": "2026-11-13T17:37:26.808Z"
+  },
+  {
+    "_id": "cat-6",
+    "name": "Cloud Computing",
+    "slug": "cloud-computing",
+    "description": "Serverless architectures, Kubernetes, AWS/Azure/GCP scaling, and DevOps pipelines.",
+    "color": "sky",
+    "icon": "cloud",
+    "createdAt": "2026-11-13T17:37:26.808Z"
+  },
+  {
+    "_id": "cat-7",
+    "name": "Industry Insights",
+    "slug": "industry-insights",
+    "description": "Tech career trajectories, engineering leadership, tech market trends, and startup analysis.",
+    "color": "indigo",
+    "icon": "trending-up",
+    "createdAt": "2026-11-13T17:37:26.808Z"
+  }
+]
