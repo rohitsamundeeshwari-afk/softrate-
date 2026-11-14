@@ -1,6 +1,5 @@
 const express = require('express');
 const cors = require('cors');
-const morgan = require('morgan');
 const dotenv = require('dotenv');
 const path = require('path');
 const fs = require('fs');
@@ -18,17 +17,16 @@ const authRoutes = require('./routes/authRoutes');
 const app = express();
 const PORT = process.env.PORT || 5000;
 
+// Trust reverse proxy for Vercel/cloud deployments
+app.set('trust proxy', 1);
+
 // Middleware
 app.use(cors());
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-if (process.env.NODE_ENV !== 'test') {
-  app.use(morgan('dev'));
-}
-
-// Health check endpoint
-app.get('/api/health', (req, res) => {
+// Health check endpoint (support both /api/health and /health)
+app.get(['/api/health', '/health'], (req, res) => {
   const dbStatus = getDBStatus();
   res.json({
     status: 'online',
@@ -39,39 +37,62 @@ app.get('/api/health', (req, res) => {
   });
 });
 
-// API Routes
-app.use('/api/posts', postRoutes);
-app.use('/api/categories', categoryRoutes);
-app.use('/api/auth', authRoutes);
-app.get('/api/stats', getStats);
+// API Routes - Support both with and without /api prefix for Vercel serverless routing
+app.use(['/api/posts', '/posts'], postRoutes);
+app.use(['/api/categories', '/categories'], categoryRoutes);
+app.use(['/api/auth', '/auth'], authRoutes);
+app.get(['/api/stats', '/stats'], getStats);
 
-// Static frontend serving if built
-const frontendDist = path.join(__dirname, '../frontend/dist');
-if (fs.existsSync(frontendDist)) {
-  app.use(express.static(frontendDist));
-  app.get(/^(?!\/api).+/, (req, res) => {
-    res.sendFile(path.join(frontendDist, 'index.html'));
-  });
+// Helper to find index.html across various deployment paths
+function getStaticIndexPath() {
+  const candidates = [
+    path.join(__dirname, '../dist/index.html'),
+    path.join(__dirname, '../frontend/dist/index.html'),
+    path.join(process.cwd(), 'dist/index.html'),
+    path.join(process.cwd(), 'frontend/dist/index.html'),
+  ];
+  for (const c of candidates) {
+    if (fs.existsSync(c)) return c;
+  }
+  return null;
 }
 
-// Root handler fallback if static frontend was not bundled with the backend
+// Serve static assets if dist exists
+const distDir = path.join(__dirname, '../dist');
+const frontendDistDir = path.join(__dirname, '../frontend/dist');
+if (fs.existsSync(distDir)) {
+  app.use(express.static(distDir));
+} else if (fs.existsSync(frontendDistDir)) {
+  app.use(express.static(frontendDistDir));
+}
+
+// Root handler
 app.get('/', (req, res) => {
-  const indexPath = path.join(frontendDist, 'index.html');
-  if (fs.existsSync(indexPath)) {
+  const indexPath = getStaticIndexPath();
+  if (indexPath) {
     return res.sendFile(indexPath);
   }
   return res.json({
     status: 'online',
-    app: 'TechPulse MERN Backend API',
-    message: 'Backend server is running successfully.',
+    app: 'TechPulse MERN Blog Platform',
+    message: 'Backend server is active. Frontend is compiled and served via /dist.',
     endpoints: {
       health: '/api/health',
       posts: '/api/posts',
       categories: '/api/categories',
       stats: '/api/stats',
-      adminLogin: '/api/auth/login',
+      login: '/api/auth/login',
     },
   });
+});
+
+// SPA catch-all for non-API routes
+app.get(/^(?!\/api).+/, (req, res, next) => {
+  const indexPath = getStaticIndexPath();
+  if (indexPath) {
+    return res.sendFile(indexPath);
+  }
+  next();
 });
 
 // 404 Handler for undefined API routes
@@ -81,7 +102,7 @@ app.use((req, res, next) => {
 
 // Global Error Handler
 app.use((err, req, res, next) => {
-  console.error('Server Error:', err.stack);
+  console.error('Server Error:', err.stack || err.message);
   res.status(err.status || 500).json({
     success: false,
     message: err.message || 'Internal Server Error',
@@ -98,7 +119,7 @@ async function initializeApp() {
   }
 }
 
-// For local development or non-serverless environments
+// Local server startup
 if (!process.env.VERCEL) {
   initializeApp().then(() => {
     app.listen(PORT, () => {
@@ -112,7 +133,6 @@ if (!process.env.VERCEL) {
     });
   });
 } else {
-  // In Vercel serverless environment, initialize once
   initializeApp();
 }
 
