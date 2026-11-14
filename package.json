@@ -2,12 +2,14 @@
   "name": "mern-tech-blog",
   "version": "1.0.0",
   "description": "Full Stack Technology Blog Website (MERN Stack)",
+  "main": "server.js",
   "scripts": {
+    "start": "node server.js",
     "server": "npm --prefix backend run dev",
     "client": "npm --prefix frontend run dev",
     "dev": "node run-all.js",
     "seed": "npm --prefix backend run seed",
-    "build": "cd frontend && npm install && npm run build"
+    "build": "node build-all.js"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",
@@ -15,8 +17,7 @@
     "dotenv": "^18.0.10",
     "express": "^5.3.0",
     "jsonwebtoken": "^9.0.3",
-    "mongoose": "^9.12.1",
-    "morgan": "^1.12.1"
+    "mongoose": "^9.12.1"
   },
   "author": "Rohit",
   "license": "ISC"
